@@ -6,7 +6,7 @@ requests==2.31.0
 
 # --- Parsing / HTML ---
 beautifulsoup4==4.12.2
-lxml==4.9.3
+lxml==4.9.2
 chardet==5.2.0
 regex
 
