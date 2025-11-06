@@ -12,35 +12,11 @@ import builtins
 import os
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+app.secret_key = "supersecretkey"
 
-# ====================================================
-# 🔹 Prefix Middleware (para compatibilidad futura)
-# ====================================================
-class PrefixMiddleware:
-    def __init__(self, app, prefix=''):
-        self.app = app
-        self.prefix = prefix
-
-    def __call__(self, environ, start_response):
-        if environ['PATH_INFO'].startswith(self.prefix):
-            environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
-            environ['SCRIPT_NAME'] = self.prefix
-            return self.app(environ, start_response)
-        else:
-            start_response('404', [('Content-Type', 'text/plain; charset=utf-8')])
-            return ["Esta URL no pertenece a la aplicación de licitaciones.".encode("utf-8")]
-
-# 🔹 Detectar prefijo dinámicamente
-APP_PREFIX = os.getenv("APP_PREFIX", "/")
-
-# Evitar bucles de redirección si el prefijo es "/" o vacío
-if APP_PREFIX not in ("", "/"):
-    app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=APP_PREFIX)
-
-# ====================================================
-# 🔹 Configuración base de datos
-# ====================================================
+# ==============================================================
+#   CONFIGURACIÓN DE LA BASE DE DATOS (ajustada para producción)
+# ==============================================================
 db = DatabaseHelper(
     host="us22.tmd.cloud",
     user="motechno_AdriDani",
@@ -48,9 +24,9 @@ db = DatabaseHelper(
     database="motechno_tenders_db"
 )
 
-# ====================================================
-# 🔹 Variables globales de control
-# ====================================================
+# ==============================================================
+#               VARIABLES GLOBALES DE CONTROL
+# ==============================================================
 processing_active = False
 current_status = "System ready"
 cycle_count = 0
@@ -58,9 +34,9 @@ console_output = []
 MAX_CONSOLE_LINES = 1000
 CONSOLE_DISPLAY_LINES = 200
 
-# ====================================================
-# 🔹 Captura del print
-# ====================================================
+# ==============================================================
+#              FUNCIONES DE CAPTURA DE CONSOLA
+# ==============================================================
 original_print = builtins.print
 
 def capture_print(*args, **kwargs):
@@ -76,7 +52,6 @@ def capture_print(*args, **kwargs):
                 console_output.append(f"[{timestamp}] {line}")
                 if len(console_output) > MAX_CONSOLE_LINES:
                     console_output.pop(0)
-
     original_print(*args, **kwargs)
 
 def setup_custom_print():
@@ -85,16 +60,12 @@ def setup_custom_print():
 def restore_original_print():
     builtins.print = original_print
 
-# ====================================================
-# 🔹 Rutas Flask
-# ====================================================
+# ==============================================================
+#               FUNCIONES Y RUTAS PRINCIPALES
+# ==============================================================
 @app.route("/")
 def index():
-    try:
-        countries = db.get_all_countries()
-    except Exception as e:
-        countries = []
-        print(f"❌ Error fetching countries: {e}")
+    countries = db.get_all_countries()
     return render_template("index.html", countries=countries, status=current_status)
 
 @app.route("/register", methods=["POST"])
@@ -121,15 +92,17 @@ def register():
 def control_panel():
     users = db.get_all_users()
     users_without_cpv = db.get_users_without_cpv()
-    return render_template("control.html",
-                           status=current_status,
-                           processing_active=processing_active,
-                           total_users=len(users),
-                           users_without_cpv=len(users_without_cpv),
-                           cycle_count=cycle_count,
-                           console_output=console_output[-CONSOLE_DISPLAY_LINES:],
-                           now=datetime.datetime.now().strftime("%H:%M:%S"),
-                           total_console_lines=len(console_output))
+    return render_template(
+        "control.html",
+        status=current_status,
+        processing_active=processing_active,
+        total_users=len(users),
+        users_without_cpv=len(users_without_cpv),
+        cycle_count=cycle_count,
+        console_output=console_output[-CONSOLE_DISPLAY_LINES:],
+        now=datetime.datetime.now().strftime("%H:%M:%S"),
+        total_console_lines=len(console_output)
+    )
 
 @app.route("/start-processing")
 def start_processing():
@@ -164,9 +137,9 @@ def clear_console():
     flash("🗑️ Console output cleared")
     return redirect(url_for("control_panel"))
 
-# ====================================================
-# 🔹 Lógica de procesamiento
-# ====================================================
+# ==============================================================
+#                FUNCIONES DE PROCESAMIENTO
+# ==============================================================
 def add_console_message(message):
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     console_output.append(f"[{timestamp}] {message}")
@@ -183,6 +156,7 @@ def run_processing_cycle():
 
         current_status = f"🔍 Cycle #{cycle_count} - Extracting CPVs for new users..."
         print(current_status)
+        print(f"📊 Checking for users without CPV associations...")
         users_processed = process_all_users()
 
         current_status = f"📡 Cycle #{cycle_count} - Searching tenders on TED..."
@@ -216,28 +190,27 @@ def continuous_processing_loop():
             time.sleep(1)
 
 def start_background_processing():
+    """Start background thread (local only)."""
     background_thread = threading.Thread(target=continuous_processing_loop)
     background_thread.daemon = True
     background_thread.start()
     print("🔄 Continuous background processing thread started")
 
-# ====================================================
-# 🔹 Ejecución
-# ====================================================
-# Configuración específica para producción
+# ==============================================================
+#                  ARRANQUE AUTOMÁTICO
+# ==============================================================
 if __name__ == "__main__":
     setup_custom_print()
-    start_background_processing()  # Solo en local
-    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
+    start_background_processing()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port, use_reloader=False)
 else:
     setup_custom_print()
-
-    # 🚀 Detectar entorno Render
+    # 🧠 Detectar Render para evitar hilos infinitos
     if os.getenv("RENDER") == "true":
         print("🟢 Running on Render (background processing disabled)")
     else:
         start_background_processing()
-        print("🔄 Continuous background processing thread started")
+        print("🔄 Continuous background processing thread started (local mode)")
 
     print("🚀 Application started in production mode (prefix: /)")
-
