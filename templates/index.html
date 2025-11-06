@@ -1,0 +1,76 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tender Alerts Registration</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-mark">T</div>
+        <span class="brand-name">Tender Alerts</span>
+      </div>
+      <nav style="margin-left: auto;">
+        <a href="{{ url_for('control_panel') }}" style="color: var(--green-600); text-decoration: none; font-weight: 600;">Control Panel</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h1 class="card-title">Register for Tender Alerts</h1>
+      <p class="card-subtitle">Tell us what you're interested in and where. We'll email you matching tenders.</p>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <ul class="messages">
+            {% for msg in messages %}
+              <li class="message">{{ msg }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      <form action="{{ url_for('register') }}" method="POST" class="form">
+        <div class="field">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" name="name" placeholder="John Doe" required>
+        </div>
+
+        <div class="field">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" placeholder="you@example.com" required>
+        </div>
+
+        <div class="field" style="grid-column: 1 / -1;">
+          <label for="interests">Types of Tenders You're Interested In</label>
+          <textarea id="interests" name="interests" rows="4" placeholder="e.g. Construction services, IT consulting, office supplies…" required></textarea>
+        </div>
+
+        <div class="field">
+          <label for="country">Country of Interest</label>
+          <select id="country" name="country" required>
+            <option value="">Select a country...</option>
+              {% for country in countries %}
+            <option value="{{ country['nombre'] }}">{{ country['nombre'] }}</option>
+              {% endfor %}
+          </select>
+        </div>
+
+        <button type="submit" class="btn-primary">Save Preferences</button>
+      </form>
+    </section>
+
+    <footer class="site-footer">
+      <p>By submitting, you agree to receive tender alerts matching your preferences.</p>
+      <p style="margin-top: 10px; font-size: 0.9em;">
+        <a href="{{ url_for('control_panel') }}" style="color: var(--green-600);">Go to Control Panel</a>
+      </p>
+    </footer>
+  </main>
+</body>
+</html>

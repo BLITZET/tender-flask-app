@@ -1,0 +1,148 @@
+<!-- templates/control.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tender Alerts - Control Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .console-output {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 600px;  /* Más alto para ver más líneas */
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.3;
+            margin: 15px 0;
+        }
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status-inactive {
+            background: #e5e7eb;
+            color: #374151;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        .cycle-divider {
+            background: #3b82f6;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .info-badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="brand">
+                <div class="brand-mark">T</div>
+                <span class="brand-name">Tender Alerts - Live Console</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <ul class="messages">
+                    {% for msg in messages %}
+                        <li class="message">{{ msg }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        <section class="card">
+            <h1 class="card-title">System Control Panel</h1>
+            
+            <div style="margin-bottom: 20px;">
+                <p><strong>Status:</strong> {{ status }}</p>
+                <p><strong>Processing:</strong> 
+                    <span class="{% if processing_active %}status-active{% else %}status-inactive{% endif %}">
+                        {% if processing_active %}ACTIVE{% else %}INACTIVE{% endif %}
+                    </span>
+                </p>
+                <p><strong>Completed Cycles:</strong> {{ cycle_count }}</p>
+                <p><strong>Console Buffer:</strong> 
+                    <span class="info-badge">{{ total_console_lines }} / 1000 lines</span>
+                </p>
+                {% if processing_active %}
+                <p style="color: #3b82f6; font-weight: bold;">🔄 Auto-updating every 10 seconds</p>
+                {% endif %}
+            </div>
+
+            <div class="controls">
+                {% if not processing_active %}
+                    <a href="{{ url_for('start_processing') }}" class="btn-primary">▶️ Start Processing</a>
+                {% else %}
+                    <a href="{{ url_for('stop_processing') }}" class="btn-primary" style="background: #dc2626;">⏹️ Stop Processing</a>
+                {% endif %}
+                <a href="{{ url_for('run_once') }}" class="btn-primary" style="background: #6b7280;">🔄 Run One Cycle</a>
+                <a href="{{ url_for('clear_console') }}" class="btn-primary" style="background: #f59e0b;">🗑️ Clear Console</a>
+                <a href="{{ url_for('index') }}" class="btn-primary" style="background: #6b7280;">📝 Registration</a>
+                <button onclick="window.location.reload()" class="btn-primary" style="background: #6b7280;">🔄 Refresh Now</button>
+            </div>
+
+            <h3>
+                Live Console Output 
+                <span class="info-badge">Showing last {{ console_output|length }} of {{ total_console_lines }} lines</span>
+            </h3>
+            
+            <div class="console-output" id="consoleOutput">
+{% for line in console_output %}
+{{ line }}
+{% endfor %}
+            </div>
+            
+            <div style="text-align: center; color: var(--gray-700); font-size: 0.9em; margin-top: 10px;">
+                Last update: {{ now }} - 
+                <a href="{{ url_for('control_panel') }}" style="color: var(--green-600);">Refresh</a> to see latest
+            </div>
+        </section>
+    </main>
+
+    {% if processing_active %}
+    <script>
+        // Auto-refresh every 10 seconds when processing is active
+        setTimeout(function() {
+            window.location.reload();
+        }, 10000);
+        
+        // Scroll to bottom on load
+        window.addEventListener('load', function() {
+            const consoleOutput = document.getElementById('consoleOutput');
+            if (consoleOutput) {
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            }
+        });
+    </script>
+    {% endif %}
+</body>
+</html>
