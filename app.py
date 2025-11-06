@@ -12,11 +12,11 @@ import builtins
 import os
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 
-# ==============================
-# 🔹 Configurar ruta base dinámica
-# ==============================
+# ====================================================
+# 🔹 Prefix Middleware (para compatibilidad futura)
+# ====================================================
 class PrefixMiddleware:
     def __init__(self, app, prefix=''):
         self.app = app
@@ -28,16 +28,19 @@ class PrefixMiddleware:
             environ['SCRIPT_NAME'] = self.prefix
             return self.app(environ, start_response)
         else:
-            start_response('404', [('Content-Type', 'text/plain')])
-            return ["Esta URL no pertenece a la aplicación de licitaciones.".encode()]
+            start_response('404', [('Content-Type', 'text/plain; charset=utf-8')])
+            return ["Esta URL no pertenece a la aplicación de licitaciones.".encode("utf-8")]
 
-# 🔹 Detectar prefijo automáticamente
-APP_PREFIX = os.getenv("APP_PREFIX", "/")  # Por defecto "/", si lo quieres en /tender pon APP_PREFIX=/tender
-app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=APP_PREFIX)
+# 🔹 Detectar prefijo dinámicamente
+APP_PREFIX = os.getenv("APP_PREFIX", "/")
 
-# ==============================
-# 🔹 Configuración de la base de datos
-# ==============================
+# Evitar bucles de redirección si el prefijo es "/" o vacío
+if APP_PREFIX not in ("", "/"):
+    app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=APP_PREFIX)
+
+# ====================================================
+# 🔹 Configuración base de datos
+# ====================================================
 db = DatabaseHelper(
     host="us22.tmd.cloud",
     user="motechno_AdriDani",
@@ -45,9 +48,9 @@ db = DatabaseHelper(
     database="motechno_tenders_db"
 )
 
-# ==============================
+# ====================================================
 # 🔹 Variables globales de control
-# ==============================
+# ====================================================
 processing_active = False
 current_status = "System ready"
 cycle_count = 0
@@ -55,9 +58,9 @@ console_output = []
 MAX_CONSOLE_LINES = 1000
 CONSOLE_DISPLAY_LINES = 200
 
-# ==============================
-# 🔹 Gestión del print capturado
-# ==============================
+# ====================================================
+# 🔹 Captura del print
+# ====================================================
 original_print = builtins.print
 
 def capture_print(*args, **kwargs):
@@ -82,12 +85,16 @@ def setup_custom_print():
 def restore_original_print():
     builtins.print = original_print
 
-# ==============================
-# 🔹 Rutas de la aplicación Flask
-# ==============================
+# ====================================================
+# 🔹 Rutas Flask
+# ====================================================
 @app.route("/")
 def index():
-    countries = db.get_all_countries()
+    try:
+        countries = db.get_all_countries()
+    except Exception as e:
+        countries = []
+        print(f"❌ Error fetching countries: {e}")
     return render_template("index.html", countries=countries, status=current_status)
 
 @app.route("/register", methods=["POST"])
@@ -157,9 +164,9 @@ def clear_console():
     flash("🗑️ Console output cleared")
     return redirect(url_for("control_panel"))
 
-# ==============================
-# 🔹 Lógica del procesamiento
-# ==============================
+# ====================================================
+# 🔹 Lógica de procesamiento
+# ====================================================
 def add_console_message(message):
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     console_output.append(f"[{timestamp}] {message}")
@@ -214,9 +221,9 @@ def start_background_processing():
     background_thread.start()
     print("🔄 Continuous background processing thread started")
 
-# ==============================
-# 🔹 Punto de entrada
-# ==============================
+# ====================================================
+# 🔹 Ejecución
+# ====================================================
 if __name__ == "__main__":
     setup_custom_print()
     start_background_processing()
@@ -224,7 +231,7 @@ if __name__ == "__main__":
     print("🚀 Web server started on http://localhost:5000")
     print("📊 Control panel available at http://localhost:5000/control")
     try:
-        app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
+        app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
     finally:
         restore_original_print()
 else:
