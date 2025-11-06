@@ -224,17 +224,20 @@ def start_background_processing():
 # ====================================================
 # 🔹 Ejecución
 # ====================================================
+# Configuración específica para producción
 if __name__ == "__main__":
     setup_custom_print()
-    start_background_processing()
-
-    print("🚀 Web server started on http://localhost:5000")
-    print("📊 Control panel available at http://localhost:5000/control")
-    try:
-        app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
-    finally:
-        restore_original_print()
+    start_background_processing()  # Solo en local
+    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False)
 else:
     setup_custom_print()
-    start_background_processing()
-    print(f"🚀 Application started in production mode (prefix: {APP_PREFIX})")
+
+    # 🚀 Detectar entorno Render
+    if os.getenv("RENDER") == "true":
+        print("🟢 Running on Render (background processing disabled)")
+    else:
+        start_background_processing()
+        print("🔄 Continuous background processing thread started")
+
+    print("🚀 Application started in production mode (prefix: /)")
+
